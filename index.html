@@ -1451,7 +1451,13 @@ REGLAS:
 - Montos siempre positivos (el tipo indica gasto/ingreso)
 - Fechas en formato YYYY-MM-DD (si solo hay DD/MM sin año, usa el año del período de la cartola)
 
-Responde ÚNICAMENTE con JSON válido sin markdown:
+FORMATO DE RESPUESTA — MUY IMPORTANTE:
+- Responde SOLO con el objeto JSON
+- NO uses bloques de código
+- NO uses comillas invertidas
+- NO escribas nada antes ni después del JSON
+- Empieza directamente con { y termina con }
+
 {"banco":"nombre detectado","periodo":"mes y año","movimientos":[{"fecha":"YYYY-MM-DD","descripcion":"nombre comercio","monto":12345,"tipo":"gasto o ingreso"}]}`;
 
     setAIStatus(true,'Claude analizando...',60);
