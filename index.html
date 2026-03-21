@@ -285,8 +285,8 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
     </div>
     <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importarDatos(this)">
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v3.4</div>
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 19:15</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v3.5</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 19:30</div>
     </div>
   </div>
 </aside>
@@ -304,6 +304,15 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
 
     <!-- DASHBOARD -->
     <div class="page active" id="page-dashboard">
+      <!-- Selector de vista -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <span style="font-size:12px;color:var(--text3)">Vista de gastos:</span>
+        <div style="display:flex;gap:4px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:4px">
+          <button id="vista-caja-btn" onclick="setVistaGasto('caja')" class="btn btn-sm" style="background:var(--accent);color:#000;font-size:12px;padding:5px 12px">💳 Flujo de caja</button>
+          <button id="vista-compromiso-btn" onclick="setVistaGasto('compromiso')" class="btn btn-sm btn-ghost" style="font-size:12px;padding:5px 12px">📋 Compromiso adquirido</button>
+        </div>
+        <span id="vista-desc" style="font-size:11px;color:var(--text3)">Mostrando lo que sale de tu bolsillo cada mes (cuota mensual)</span>
+      </div>
       <div class="stat-grid" id="dash-stats"></div>
       <div class="grid-60-40">
         <div class="panel">
@@ -324,6 +333,14 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
           <div class="panel-header"><span class="panel-title">Últimos movimientos</span></div>
           <div class="panel-body" id="dash-ultimos"></div>
         </div>
+      </div>
+      <!-- Panel compromisos futuros -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">📅 Compromisos futuros en cuotas</span>
+          <span class="badge badge-yellow" id="dash-compromisos-count">0 cuotas pendientes</span>
+        </div>
+        <div class="panel-body" id="dash-compromisos"></div>
       </div>
     </div>
 
@@ -715,6 +732,7 @@ let editMovId=null;
 let importRows=[], importHeaders=[], importProfileDetected='manual';
 let movPage=0; const MOV_PAGE_SIZE=50;
 let chartIG=null,chartCat=null,chartPres=null,chartInv=null;
+let vistaGasto='caja'; // 'caja' o 'compromiso'
 
 // ─── ESTADO PRINCIPAL ────────────────────────────────────
 let data = {
@@ -934,11 +952,30 @@ function renderPage(n){
 function getActivePage(){return document.querySelector('.page.active').id.replace('page-','')}
 function changeYear(y){activeYear=parseInt(y);document.getElementById('sidebar-year').textContent='AÑO '+activeYear;document.getElementById('pres-year-label').textContent=activeYear;renderPage(getActivePage())}
 
+// ─── VISTA GASTO ─────────────────────────────────────────
+function setVistaGasto(v){
+  vistaGasto=v;
+  document.getElementById('vista-caja-btn').style.background=v==='caja'?'var(--accent)':'transparent';
+  document.getElementById('vista-caja-btn').style.color=v==='caja'?'#000':'var(--text2)';
+  document.getElementById('vista-compromiso-btn').style.background=v==='compromiso'?'var(--accent)':'transparent';
+  document.getElementById('vista-compromiso-btn').style.color=v==='compromiso'?'#000':'var(--text2)';
+  document.getElementById('vista-desc').textContent=v==='caja'?
+    'Mostrando lo que sale de tu bolsillo cada mes (cuota mensual)':
+    'Mostrando el valor total de cada compra, independiente de las cuotas';
+  renderDashboard();
+}
+
+// Helper: obtener monto según vista
+function montoVista(m){
+  if(vistaGasto==='compromiso'&&m.montoTotal&&m.montoTotal>0)return m.montoTotal;
+  return m.monto;
+}
+
 // ─── DASHBOARD ───────────────────────────────────────────
 function renderDashboard(){
   const movs=movsByYear();
-  const ing=movs.filter(m=>m.tipo==='ingreso').reduce((a,m)=>a+m.monto,0);
-  const gas=movs.filter(m=>m.tipo==='gasto').reduce((a,m)=>a+m.monto,0);
+  const ing=movs.filter(m=>m.tipo==='ingreso').reduce((a,m)=>a+montoVista(m),0);
+  const gas=movs.filter(m=>m.tipo==='gasto').reduce((a,m)=>a+montoVista(m),0);
   const aho=ing-gas;
   const tasa=ing>0?((aho/ing)*100).toFixed(1):0;
   document.getElementById('dash-stats').innerHTML=`
@@ -949,7 +986,7 @@ function renderDashboard(){
   `;
   // Chart mensual
   const ingM=Array(12).fill(0),gasM=Array(12).fill(0);
-  movs.forEach(m=>{const mes=new Date(m.fecha).getMonth();if(m.tipo==='ingreso')ingM[mes]+=m.monto;else gasM[mes]+=m.monto});
+  movs.forEach(m=>{const mes=new Date(m.fecha).getMonth();if(m.tipo==='ingreso')ingM[mes]+=montoVista(m);else gasM[mes]+=montoVista(m)});
   const ctx1=document.getElementById('chart-ig').getContext('2d');
   if(chartIG)chartIG.destroy();
   chartIG=new Chart(ctx1,{type:'bar',data:{labels:MESES,datasets:[
@@ -958,7 +995,7 @@ function renderDashboard(){
   ]},options:{responsive:true,plugins:{legend:{labels:{color:'#8888aa',font:{family:'Epilogue',size:12}}}},scales:{x:{ticks:{color:'#5a5a72'},grid:{color:'#1e1e22'}},y:{ticks:{color:'#5a5a72',callback:v=>fmtK(v)},grid:{color:'#1e1e22'}}}}});
   // Chart categorías
   const catG={};
-  movs.filter(m=>m.tipo==='gasto').forEach(m=>{catG[m.catId]=(catG[m.catId]||0)+m.monto});
+  movs.filter(m=>m.tipo==='gasto').forEach(m=>{catG[m.catId]=(catG[m.catId]||0)+montoVista(m)});
   const entries=Object.entries(catG).sort((a,b)=>b[1]-a[1]).slice(0,8);
   const ctx2=document.getElementById('chart-cat').getContext('2d');
   if(chartCat)chartCat.destroy();
@@ -976,7 +1013,7 @@ function renderDashboard(){
   if(!Object.keys(pres).length)pH='<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Sin presupuesto</div><div class="empty-sub">Ve a Presupuesto → Sugerir desde historial</div></div>';
   else Object.entries(pres).filter(([id])=>{const c=getCat(id);return c&&data.categorias.gasto.find(g=>g.id===id)}).slice(0,7).forEach(([id,p])=>{
     const c=getCat(id);if(!c)return;
-    const real=movsM.filter(m=>m.catId===id).reduce((a,m)=>a+m.monto,0);
+    const real=movsM.filter(m=>m.catId===id).reduce((a,m)=>a+montoVista(m),0);
     const pct=p.mensual>0?Math.min((real/p.mensual)*100,150):0;
     const cls=pct<75?'ok':pct<100?'warn':'over';
     pH+=`<div class="progress-row"><div class="progress-info"><span class="progress-name">${c.emoji} ${c.nombre}</span><span class="progress-nums">${fmt(real)} / ${fmt(p.mensual)}</span></div><div class="progress-track"><div class="progress-bar ${cls}" style="width:${pct}%"></div></div></div>`;
@@ -988,6 +1025,55 @@ function renderDashboard(){
   if(!ult.length)uH='<div class="empty"><div class="empty-icon">💳</div><div class="empty-title">Sin movimientos</div></div>';
   else ult.forEach(m=>{const c=getCat(m.catId);uH+=`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:18px">${c?c.emoji:'💳'}</span><div><div style="font-size:13px;font-weight:500">${m.desc}</div><div style="font-size:11px;color:var(--text3)">${m.fecha} · ${c?c.nombre:'—'}</div></div></div><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:${m.tipo==='ingreso'?'var(--green)':'var(--red)'}">${m.tipo==='ingreso'?'+':'-'}${fmt(m.monto)}</span></div>`;});
   document.getElementById('dash-ultimos').innerHTML=uH;
+
+  // Panel compromisos futuros en cuotas
+  const hoy=new Date();
+  const mesHoy=hoy.getMonth();
+  const anioHoy=hoy.getFullYear();
+  // Buscar movimientos en cuotas que tengan cuotas pendientes futuras
+  const enCuotas=data.movimientos.filter(m=>m.totalCuotas&&m.totalCuotas>1&&m.numeroCuota&&m.monto>0);
+  // Calcular cuotas pendientes por mes (próximos 6 meses)
+  const pendientesPorMes={};
+  enCuotas.forEach(m=>{
+    const fechaMov=new Date(m.fecha);
+    const cuotasRestantes=m.totalCuotas-m.numeroCuota;
+    if(cuotasRestantes<=0)return;
+    for(let i=1;i<=cuotasRestantes;i++){
+      const mes=new Date(fechaMov.getFullYear(),fechaMov.getMonth()+i,1);
+      if(mes<=hoy)continue;
+      const key=`${mes.getFullYear()}-${String(mes.getMonth()+1).padStart(2,'0')}`;
+      if(!pendientesPorMes[key])pendientesPorMes[key]={total:0,items:[]};
+      pendientesPorMes[key].total+=m.monto;
+      pendientesPorMes[key].items.push(m);
+    }
+  });
+  const keys=Object.keys(pendientesPorMes).sort().slice(0,6);
+  let cH='';
+  let totalPendiente=0;
+  if(!keys.length){
+    cH='<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">No hay compras en cuotas con pagos pendientes</div>';
+  } else {
+    keys.forEach(k=>{
+      const [anio,mes]=k.split('-');
+      const nombreMes=MESES_FULL[parseInt(mes)-1]+' '+anio;
+      const d=pendientesPorMes[k];
+      totalPendiente+=d.total;
+      cH+=`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border)">
+        <div style="font-size:13px;font-weight:500">${nombreMes}</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:11px;color:var(--text3)">${d.items.length} cuota${d.items.length>1?'s':''}</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--red)">-${fmt(d.total)}</span>
+        </div>
+      </div>`;
+    });
+    cH+=`<div style="padding:10px 16px;display:flex;justify-content:space-between;background:var(--bg3)">
+      <span style="font-size:12px;color:var(--text3)">Total comprometido próximos meses</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--red)">-${fmt(totalPendiente)}</span>
+    </div>`;
+  }
+  document.getElementById('dash-compromisos').innerHTML=cH;
+  const totalCuotas=enCuotas.reduce((a,m)=>a+(m.totalCuotas-m.numeroCuota),0);
+  document.getElementById('dash-compromisos-count').textContent=totalCuotas>0?`${totalCuotas} cuotas pendientes`:'Sin cuotas pendientes';
 }
 
 // ─── PRESUPUESTO ─────────────────────────────────────────
