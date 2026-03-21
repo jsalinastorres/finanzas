@@ -285,8 +285,8 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
     </div>
     <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importarDatos(this)">
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v3.3</div>
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 19:00</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v3.4</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 19:15</div>
     </div>
   </div>
 </aside>
@@ -1079,8 +1079,11 @@ function renderMovimientos(){
   if(fcuotas==='contado')movs=movs.filter(m=>!m.totalCuotas||m.totalCuotas<=1);
   if(fcuotas==='cuotas')movs=movs.filter(m=>m.totalCuotas&&m.totalCuotas>1);
 
-  document.getElementById('mov-count').textContent=movs.length;
-  const total=movs.length;const pages=Math.ceil(total/MOV_PAGE_SIZE);
+  // Reset página si el filtro redujo los resultados
+  const total=movs.length;
+  const pages=Math.ceil(total/MOV_PAGE_SIZE);
+  if(movPage>=pages)movPage=0;
+  document.getElementById('mov-count').textContent=total;
   const slice=movs.slice(movPage*MOV_PAGE_SIZE,(movPage+1)*MOV_PAGE_SIZE);
 
   // Helpers para badges
