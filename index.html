@@ -285,8 +285,8 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
     </div>
     <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importarDatos(this)">
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v3.0</div>
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 18:00</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v3.1</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 18:20</div>
     </div>
   </div>
 </aside>
@@ -1498,7 +1498,7 @@ Responde con JSON compacto sin espacios ni saltos de línea, sin backticks, sin 
       headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
         model:'claude-haiku-4-5-20251001',
-        max_tokens:16000,
+        max_tokens:32000,
         system:'Eres un extractor de datos JSON. Respondes ÚNICAMENTE con JSON válido, sin texto adicional, sin bloques de código, sin backticks. Tu respuesta empieza con { y termina con }. Nunca escribes nada fuera del JSON. Usa formato compacto sin espacios ni saltos de línea innecesarios.',
         messages:[{role:'user',content:[
           {type:mediaType==='application/pdf'?'document':'image',source:{type:'base64',media_type:mediaType,data:base64}},
