@@ -285,8 +285,8 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
     </div>
     <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importarDatos(this)">
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">FinanzasCL v2.7</div>
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 16:30</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">FinanzasCL v2.8</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 17:00</div>
     </div>
   </div>
 </aside>
@@ -1592,6 +1592,48 @@ function confirmImportAI(){
   }
 }
 
+// ─── EXPORT / IMPORT JSON ────────────────────────────────
+function exportarDatos(){
+  try{
+    const exportData={...data,_version:2,_exportado:new Date().toISOString()};
+    const json=JSON.stringify(exportData,null,2);
+    const blob=new Blob([json],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    const fecha=new Date().toISOString().slice(0,10);
+    a.href=url;
+    a.download=`FinanzasCL_datos_${fecha}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Datos exportados — guárdalos en OneDrive','success');
+    _cambiosSinExportar=0;
+    _ultimaExportacion=Date.now();
+    cerrarRecordatorio();
+  }catch(e){showToast('Error al exportar: '+e.message,'error')}
+}
+function importarDatos(input){
+  const file=input.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const parsed=JSON.parse(e.target.result);
+      if(!parsed.categorias||!parsed.movimientos){showToast('Archivo inválido','error');return}
+      if(!confirm(`¿Cargar datos de "${file.name}"?\n\nMovimientos: ${parsed.movimientos?.length||0}\nEsto reemplazará los datos actuales.`))return;
+      data={...data,...parsed};
+      saveData();
+      updateMovCats();updatePresCats();updateReglaCats();
+      renderPage(getActivePage());
+      updateApiKeyUI();
+      showToast(`✓ ${parsed.movimientos?.length||0} movimientos cargados`,'success');
+    }catch(err){showToast('Error al leer archivo: '+err.message,'error')}
+  };
+  reader.readAsText(file);
+  input.value='';
+}
+
 // ─── RECORDATORIO EXPORTACIÓN ────────────────────────────
 let _cambiosSinExportar=0;
 let _ultimaExportacion=Date.now();
@@ -1649,15 +1691,6 @@ function cerrarRecordatorio(){
   const b=document.getElementById('export-reminder');
   if(b)b.remove();
 }
-
-// Marcar exportación como hecha
-const _origExportar=exportarDatos;
-exportarDatos=function(){
-  _origExportar.apply(this,arguments);
-  _cambiosSinExportar=0;
-  _ultimaExportacion=Date.now();
-  cerrarRecordatorio();
-};
 
 // Aviso al cerrar pestaña/navegador
 window.addEventListener('beforeunload',e=>{
