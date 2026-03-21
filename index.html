@@ -285,8 +285,8 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
     </div>
     <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importarDatos(this)">
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v3.5</div>
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 19:30</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v3.6</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 19:45</div>
     </div>
   </div>
 </aside>
@@ -1028,23 +1028,21 @@ function renderDashboard(){
 
   // Panel compromisos futuros en cuotas
   const hoy=new Date();
-  const mesHoy=hoy.getMonth();
-  const anioHoy=hoy.getFullYear();
-  // Buscar movimientos en cuotas que tengan cuotas pendientes futuras
   const enCuotas=data.movimientos.filter(m=>m.totalCuotas&&m.totalCuotas>1&&m.numeroCuota&&m.monto>0);
-  // Calcular cuotas pendientes por mes (próximos 6 meses)
   const pendientesPorMes={};
   enCuotas.forEach(m=>{
     const fechaMov=new Date(m.fecha);
     const cuotasRestantes=m.totalCuotas-m.numeroCuota;
     if(cuotasRestantes<=0)return;
     for(let i=1;i<=cuotasRestantes;i++){
-      const mes=new Date(fechaMov.getFullYear(),fechaMov.getMonth()+i,1);
-      if(mes<=hoy)continue;
-      const key=`${mes.getFullYear()}-${String(mes.getMonth()+1).padStart(2,'0')}`;
-      if(!pendientesPorMes[key])pendientesPorMes[key]={total:0,items:[]};
+      // Cada cuota siguiente cae un mes después de la anterior
+      const mesCuota=new Date(fechaMov.getFullYear(),fechaMov.getMonth()+i,1);
+      // Solo mostrar cuotas futuras (desde hoy en adelante)
+      if(mesCuota<new Date(hoy.getFullYear(),hoy.getMonth(),1))continue;
+      const key=`${mesCuota.getFullYear()}-${String(mesCuota.getMonth()+1).padStart(2,'0')}`;
+      if(!pendientesPorMes[key])pendientesPorMes[key]={total:0,count:0};
       pendientesPorMes[key].total+=m.monto;
-      pendientesPorMes[key].items.push(m);
+      pendientesPorMes[key].count++;
     }
   });
   const keys=Object.keys(pendientesPorMes).sort().slice(0,6);
@@ -1061,7 +1059,7 @@ function renderDashboard(){
       cH+=`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border)">
         <div style="font-size:13px;font-weight:500">${nombreMes}</div>
         <div style="display:flex;align-items:center;gap:12px">
-          <span style="font-size:11px;color:var(--text3)">${d.items.length} cuota${d.items.length>1?'s':''}</span>
+          <span style="font-size:11px;color:var(--text3)">${d.count} cuota${d.count>1?'s':''}</span>
           <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--red)">-${fmt(d.total)}</span>
         </div>
       </div>`;
@@ -1072,8 +1070,17 @@ function renderDashboard(){
     </div>`;
   }
   document.getElementById('dash-compromisos').innerHTML=cH;
-  const totalCuotas=enCuotas.reduce((a,m)=>a+(m.totalCuotas-m.numeroCuota),0);
-  document.getElementById('dash-compromisos-count').textContent=totalCuotas>0?`${totalCuotas} cuotas pendientes`:'Sin cuotas pendientes';
+  // Contar cuotas futuras totales
+  let totalCuotasFuturas=0;
+  enCuotas.forEach(m=>{
+    const fechaMov=new Date(m.fecha);
+    const cuotasRestantes=m.totalCuotas-m.numeroCuota;
+    for(let i=1;i<=cuotasRestantes;i++){
+      const mesCuota=new Date(fechaMov.getFullYear(),fechaMov.getMonth()+i,1);
+      if(mesCuota>=new Date(hoy.getFullYear(),hoy.getMonth(),1))totalCuotasFuturas++;
+    }
+  });
+  document.getElementById('dash-compromisos-count').textContent=totalCuotasFuturas>0?`${totalCuotasFuturas} cuotas pendientes`:'Sin cuotas pendientes';
 }
 
 // ─── PRESUPUESTO ─────────────────────────────────────────
