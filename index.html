@@ -255,6 +255,10 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>Categorías
       <div class="nav-tooltip"><div class="nav-tooltip-title">🗂️ Categorías</div><div class="nav-tooltip-desc">Crea, edita y elimina categorías de ingresos y gastos. Puedes personalizarlas con nombre, emoji y color. Las nuevas categorías quedan disponibles en todo el sistema.</div></div>
     </button>
+    <button class="nav-item" onclick="showPage('historial')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Clasificaciones IA
+      <div class="nav-tooltip"><div class="nav-tooltip-title">🧠 Historial de Clasificaciones</div><div class="nav-tooltip-desc">Registro de todas las categorizaciones automáticas. Puedes corregir cualquier clasificación y bloquearla para que la IA no la vuelva a cambiar.</div></div>
+    </button>
   </nav>
   <div class="sidebar-footer">
     <div class="year-row">
@@ -285,8 +289,8 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
     </div>
     <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importarDatos(this)">
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v3.6</div>
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 19:45</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v3.7</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 20:15</div>
     </div>
   </div>
 </aside>
@@ -344,7 +348,28 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
       </div>
     </div>
 
-    <!-- PRESUPUESTO -->
+    <!-- HISTORIAL CLASIFICACIONES -->
+    <div class="page" id="page-historial">
+      <div class="alert alert-blue" style="margin-bottom:20px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Aquí puedes ver cómo se clasificó automáticamente cada comercio. Si algo está mal, corrígelo — quedará bloqueado y la IA no lo volverá a cambiar.</span>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">🧠 Clasificaciones automáticas</span>
+          <div style="display:flex;gap:8px">
+            <span id="hist-bloqueados" class="badge badge-green">0 bloqueados</span>
+            <span id="hist-total" class="badge badge-gray">0 registros</span>
+          </div>
+        </div>
+        <div style="padding:0;overflow-x:auto">
+          <table class="tbl">
+            <thead><tr><th>Comercio</th><th>Método</th><th>Categoría asignada</th><th>Clave usada</th><th>Veces</th><th>Acción</th></tr></thead>
+            <tbody id="historial-clas-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
     <div class="page" id="page-presupuesto">
       <div class="alert alert-blue" style="margin-bottom:20px">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -865,7 +890,9 @@ let data = {
   movimientos:[],
   inversiones:[],
   importaciones:[],
-  sinCatAsignaciones:{}, // keyword -> catId guardados por el usuario
+  sinCatAsignaciones:{},
+  historialClasificacion:{},
+  reglasBloqueadas:{},
 };
 
 // ─── PRESUPUESTO SUGERIDO (basado en promedios reales de tus cartolas) ─
@@ -909,15 +936,180 @@ function movsByYear(y){return data.movimientos.filter(m=>new Date(m.fecha).getFu
 function presYear(){return data.presupuestos[activeYear]||{}}
 
 // ─── AUTO-CLASIFICACIÓN ───────────────────────────────────
-function autoClasificar(desc,tipo){
+// ─── CLASIFICACIÓN INTELIGENTE ───────────────────────────
+
+function autoClasificar(desc,tipo,registrarHistorial=true){
   const d=(desc||'').toLowerCase();
-  // primero reglas personalizadas del usuario
+
+  // Nivel 0: verificar si está bloqueado (corregido manualmente)
+  const bloqueado=data.reglasBloqueadas[d];
+  if(bloqueado&&bloqueado.tipo===tipo) return bloqueado.catId;
+
+  // Nivel 1: reglas personalizadas del usuario (coincidencia parcial)
   const reglas=data.reglas.filter(r=>r.tipo===tipo);
   for(const r of reglas){
-    if(d.includes(r.keyword.toLowerCase())){r.usos++;return r.catId}
+    if(d.includes(r.keyword.toLowerCase())){
+      r.usos++;
+      if(registrarHistorial) registrarClasificacion(desc,tipo,r.catId,'regla',r.keyword);
+      return r.catId;
+    }
   }
+
+  // Nivel 2: aprendizaje desde historial — buscar comercios similares ya clasificados
+  const movsClasificados=data.movimientos.filter(m=>
+    m.tipo===tipo && m.catId && m.catId!=='g11' && m.catId!=='i4' && m.desc
+  );
+  // Extraer palabras clave de descripciones ya clasificadas
+  const palabrasKey=extraerPalabrasKey(d);
+  for(const kw of palabrasKey){
+    if(kw.length<4) continue;
+    const coincidencias=movsClasificados.filter(m=>m.desc.toLowerCase().includes(kw));
+    if(coincidencias.length>=2){
+      // Categoría más frecuente para esa palabra clave
+      const freq={};
+      coincidencias.forEach(m=>{freq[m.catId]=(freq[m.catId]||0)+1});
+      const catId=Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0];
+      if(registrarHistorial) registrarClasificacion(desc,tipo,catId,'aprendizaje',kw);
+      return catId;
+    }
+  }
+
   // fallback por tipo
   return tipo==='ingreso'?'i4':'g11';
+}
+
+function extraerPalabrasKey(desc){
+  // Extraer palabras significativas (ignorar preposiciones y palabras cortas)
+  const stopwords=['de','la','el','los','las','un','una','en','con','por','para','del','al','spa','ltda','s.a'];
+  return desc.split(/[\s\*\.\-\_\/]+/)
+    .map(w=>w.toLowerCase().trim())
+    .filter(w=>w.length>=4 && !stopwords.includes(w));
+}
+
+function registrarClasificacion(desc,tipo,catId,metodo,clave){
+  const key=desc.toLowerCase().trim();
+  if(!data.historialClasificacion[key]){
+    data.historialClasificacion[key]={
+      desc,tipo,catId,metodo,clave,
+      fecha:new Date().toISOString().slice(0,10),
+      veces:1,
+      corregido:false
+    };
+  } else {
+    data.historialClasificacion[key].veces++;
+    data.historialClasificacion[key].catId=catId;
+  }
+}
+
+// Clasificación masiva con IA para comercios sin categoría (Nivel 3)
+async function clasificarConIA(movsSinCat){
+  const key=getApiKey();
+  if(!key||!movsSinCat.length) return {};
+  const comercios=[...new Set(movsSinCat.map(m=>m.desc))].slice(0,30);
+  const cats=[...data.categorias.gasto,...data.categorias.ingreso];
+  const prompt=`Clasifica estos comercios chilenos en las categorías disponibles.
+
+COMERCIOS A CLASIFICAR:
+${comercios.map((c,i)=>`${i+1}. ${c}`).join('\n')}
+
+CATEGORÍAS DISPONIBLES:
+${cats.map(c=>`${c.id}: ${c.emoji} ${c.nombre}`).join('\n')}
+
+Responde con JSON compacto sin backticks:
+{"clasificaciones":[{"desc":"nombre comercio","catId":"g1","razon":"breve explicación"}]}`;
+
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:2000,
+        system:'Eres un clasificador de gastos. Respondes ÚNICAMENTE con JSON válido sin backticks ni markdown.',
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    if(!resp.ok) return {};
+    const result=await resp.json();
+    const text=result.content?.[0]?.text||'';
+    const start=text.indexOf('{');const end=text.lastIndexOf('}');
+    if(start===-1||end===-1) return {};
+    const parsed=JSON.parse(text.slice(start,end+1));
+    const mapa={};
+    (parsed.clasificaciones||[]).forEach(c=>{
+      mapa[c.desc.toLowerCase().trim()]={catId:c.catId,razon:c.razon};
+    });
+    return mapa;
+  }catch(e){return{}}
+}
+
+function renderHistorialClasificacion(){
+  const hist=Object.values(data.historialClasificacion||{}).sort((a,b)=>b.veces-a.veces);
+  const el=document.getElementById('historial-clas-body');
+  if(!el) return;
+  if(!hist.length){
+    el.innerHTML='<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text3)">Sin clasificaciones automáticas aún. Importa una cartola para empezar.</td></tr>';
+    return;
+  }
+  const cats=[...data.categorias.gasto,...data.categorias.ingreso];
+  el.innerHTML=hist.slice(0,100).map(h=>{
+    const cat=getCat(h.catId);
+    const bloqueado=data.reglasBloqueadas[h.desc.toLowerCase().trim()];
+    const metodoBadge=h.metodo==='regla'?
+      '<span class="badge badge-blue" style="font-size:10px">📋 Regla</span>':
+      h.metodo==='aprendizaje'?'<span class="badge badge-yellow" style="font-size:10px">🧠 Aprendizaje</span>':
+      '<span class="badge badge-orange" style="font-size:10px">🤖 IA</span>';
+    return`<tr style="${bloqueado?'opacity:.6':''}">
+      <td style="font-size:13px">${h.desc}</td>
+      <td>${metodoBadge}</td>
+      <td><span class="badge badge-gray">${cat?cat.emoji+' '+cat.nombre:'—'}</span></td>
+      <td style="font-size:11px;color:var(--text3)">${h.clave||'—'}</td>
+      <td style="font-size:11px;color:var(--text3)">${h.veces}×</td>
+      <td class="actions">
+        ${bloqueado?
+          `<span style="font-size:10px;color:var(--green)">🔒 Bloqueado</span>
+           <button class="btn btn-ghost btn-sm" onclick="desbloquearClasificacion('${h.desc.replace(/'/g,"\\'")}')">Desbloquear</button>`:
+          `<select class="form-select" style="font-size:11px;padding:4px 8px" onchange="corregirClasificacion('${h.desc.replace(/'/g,"\\'")}','${h.tipo}',this.value)">
+            <option value="">Corregir...</option>
+            ${cats.filter(c=>data.categorias[h.tipo||'gasto'].find(x=>x.id===c.id)).map(c=>`<option value="${c.id}" ${c.id===h.catId?'selected':''}>${c.emoji} ${c.nombre}</option>`).join('')}
+          </select>`
+        }
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function corregirClasificacion(desc,tipo,nuevaCatId){
+  if(!nuevaCatId) return;
+  const key=desc.toLowerCase().trim();
+  // Actualizar historial
+  if(data.historialClasificacion[key]){
+    data.historialClasificacion[key].catId=nuevaCatId;
+    data.historialClasificacion[key].corregido=true;
+  }
+  // Bloquear para que la IA no lo sobreescriba
+  data.reglasBloqueadas[key]={catId:nuevaCatId,tipo,fecha:new Date().toISOString().slice(0,10)};
+  // Actualizar movimientos existentes con esa descripción
+  let actualizados=0;
+  data.movimientos.forEach(m=>{
+    if(m.desc.toLowerCase().trim()===key&&m.tipo===tipo){
+      m.catId=nuevaCatId;
+      actualizados++;
+    }
+  });
+  saveData();
+  renderHistorialClasificacion();
+  renderMovimientos();
+  showToast(`✓ Corregido y bloqueado — ${actualizados} movimientos actualizados`,'success');
+}
+
+function desbloquearClasificacion(desc){
+  const key=desc.toLowerCase().trim();
+  delete data.reglasBloqueadas[key];
+  if(data.historialClasificacion[key]) data.historialClasificacion[key].corregido=false;
+  saveData();
+  renderHistorialClasificacion();
+  showToast('Desbloqueado — se puede reclasificar automáticamente');
 }
 
 // ─── NAVEGACIÓN ──────────────────────────────────────────
@@ -928,7 +1120,7 @@ const pageInfo={
   importar:{title:'Importar Cartola',sub:'Carga desde banco o tarjeta'},
   reglas:{title:'Reglas de Clasificación',sub:'Auto-categorización de comercios'},
   inversiones:{title:'Inversiones',sub:'Portafolio y seguimiento'},
-  categorias:{title:'Categorías',sub:'Gestión de categorías'},
+  historial:{title:'Clasificaciones IA',sub:'Historial y corrección de clasificaciones automáticas'},
 };
 function showPage(name){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -948,6 +1140,12 @@ function renderPage(n){
   if(n==='inversiones')renderInversiones();
   if(n==='categorias')renderCategorias();
   if(n==='importar')renderImportHistory();
+  if(n==='historial'){renderHistorialClasificacion();
+    const hist=Object.values(data.historialClasificacion||{});
+    const bloq=Object.keys(data.reglasBloqueadas||{}).length;
+    document.getElementById('hist-total').textContent=hist.length+' registros';
+    document.getElementById('hist-bloqueados').textContent=bloq+' bloqueados';
+  }
 }
 function getActivePage(){return document.querySelector('.page.active').id.replace('page-','')}
 function changeYear(y){activeYear=parseInt(y);document.getElementById('sidebar-year').textContent='AÑO '+activeYear;document.getElementById('pres-year-label').textContent=activeYear;renderPage(getActivePage())}
