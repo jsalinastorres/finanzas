@@ -418,8 +418,17 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
               <div style="font-size:12px;color:var(--text3)">PDF, JPG, PNG · CMR · Banco Chile · Banco Falabella</div>
             </div>
             <input type="file" id="file-input-ai" accept=".pdf,.jpg,.jpeg,.png,.webp" onchange="handleFileAI(this)" style="display:none">
-            <!-- Estado de procesamiento IA -->
-            <div id="ai-status" style="display:none;margin-top:14px">
+            <!-- Error persistente -->
+            <div id="ai-error-panel" style="display:none;margin-top:14px">
+              <div style="background:var(--red-bg);border:1px solid #3e1010;border-radius:var(--r2);padding:14px">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                  <span style="font-size:13px;font-weight:600;color:var(--red)">❌ Error al procesar</span>
+                  <button onclick="document.getElementById('ai-error-panel').style.display='none'" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px">✕</button>
+                </div>
+                <div id="ai-error-text" style="font-size:12px;color:#ff9999;font-family:'JetBrains Mono',monospace;word-break:break-all;white-space:pre-wrap;max-height:200px;overflow-y:auto;background:rgba(0,0,0,.3);padding:10px;border-radius:6px"></div>
+                <div style="margin-top:10px;font-size:11px;color:var(--text3)">Copia este error y compártelo con Claude para solucionar el problema.</div>
+              </div>
+            </div>
               <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r2);padding:14px">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
                   <div id="ai-spinner" style="width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0"></div>
@@ -1468,10 +1477,15 @@ FORMATO DE RESPUESTA — MUY IMPORTANTE:
     const resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:4096,messages:[{role:'user',content:[
-        {type:mediaType==='application/pdf'?'document':'image',source:{type:'base64',media_type:mediaType,data:base64}},
-        {type:'text',text:prompt}
-      ]}]})
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:4096,
+        system:'Eres un extractor de datos JSON. Respondes ÚNICAMENTE con JSON válido, sin texto adicional, sin bloques de código, sin backticks. Tu respuesta empieza con { y termina con }. Nunca escribes nada fuera del JSON.',
+        messages:[{role:'user',content:[
+          {type:mediaType==='application/pdf'?'document':'image',source:{type:'base64',media_type:mediaType,data:base64}},
+          {type:'text',text:prompt}
+        ]}]
+      })
     });
     if(!resp.ok){
       const err=await resp.json();
@@ -1498,7 +1512,18 @@ FORMATO DE RESPUESTA — MUY IMPORTANTE:
     importProfileDetected='ai';
     showImportPreviewAI(movs,parsed.banco||'IA',parsed.periodo||'');
     showToast('✓ '+movs.length+' movimientos extraídos','success');
-  }catch(e){setAIStatus(false);showToast('Error: '+e.message,'error');console.error(e)}
+  }catch(e){
+    setAIStatus(false);
+    // Mostrar error persistente en pantalla
+    const panel=document.getElementById('ai-error-panel');
+    const txt=document.getElementById('ai-error-text');
+    if(panel&&txt){
+      txt.textContent=e.message;
+      panel.style.display='block';
+    }
+    showToast('Error al procesar PDF','error');
+    console.error('AI Import error:',e);
+  }
 }
 
 function setAIStatus(show,text,pct){
