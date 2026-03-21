@@ -289,8 +289,8 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
     </div>
     <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importarDatos(this)">
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v3.8</div>
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 21:00</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v3.8b</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 21:10</div>
     </div>
   </div>
 </aside>
@@ -2086,7 +2086,7 @@ function confirmImportAI(){
   const movsImportados=data.movimientos.slice(-importados);
   const totalGastos=movsImportados.filter(m=>m.tipo==='gasto').reduce((a,m)=>a+m.monto,0);
   const totalIngresos=movsImportados.filter(m=>m.tipo==='ingreso').reduce((a,m)=>a+m.monto,0);
-  const sinCat=movsImportados.filter(m=>m.catId==='g11'||m.catId==='i4').length;
+  const sinCatCount=movsImportados.filter(m=>m.catId==='g11'||m.catId==='i4').length;
   const enCuotas=movsImportados.filter(m=>m.totalCuotas&&m.totalCuotas>1).length;
   // Top 5 categorías
   const catFreq={};
@@ -2104,7 +2104,7 @@ function confirmImportAI(){
     errores:0,
     totalGastos,
     totalIngresos,
-    sinCat,
+    sinCat:sinCatCount,
     enCuotas,
     topCategorias
   });
