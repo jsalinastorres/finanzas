@@ -289,8 +289,8 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
     </div>
     <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importarDatos(this)">
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v3.9</div>
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 21:30</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v4.0</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 21:50</div>
     </div>
   </div>
 </aside>
@@ -1055,6 +1055,22 @@ Responde con JSON compacto sin backticks:
   }catch(e){return{}}
 }
 
+function borrarImportacion(importId){
+  const imp=data.importaciones.find(i=>i.id===importId);
+  if(!imp)return;
+  const banco=imp.banco||'esta cartola';
+  const periodo=imp.periodo||'';
+  if(!confirm(`¿Borrar todos los movimientos de "${banco}${periodo?' · '+periodo:''}"?\n\nSe eliminarán ${imp.filas} movimientos. Esta acción no se puede deshacer.`))return;
+  const antes=data.movimientos.length;
+  data.movimientos=data.movimientos.filter(m=>m.importId!==importId);
+  data.importaciones=data.importaciones.filter(i=>i.id!==importId);
+  const eliminados=antes-data.movimientos.length;
+  saveData();
+  renderImportHistory();
+  renderDashboard();
+  showToast(`✓ ${eliminados} movimientos eliminados`,'success');
+}
+
 function renderHistorialClasificacion(){
   const hist=Object.values(data.historialClasificacion||{}).sort((a,b)=>b.veces-a.veces);
   const el=document.getElementById('historial-clas-body');
@@ -1711,6 +1727,7 @@ function renderImportHistory(){
         <div style="display:flex;gap:8px;align-items:center">
           ${imp.duplicados?`<span class="badge badge-yellow">${imp.duplicados} duplicados</span>`:''}
           <span class="badge badge-green">+${imp.filas} movimientos</span>
+          ${imp.id?`<button class="btn btn-red btn-sm" onclick="borrarImportacion('${imp.id}')">🗑️ Borrar</button>`:''}
         </div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:${gastosTop.length?'12px':'0'}">
@@ -2069,6 +2086,7 @@ function confirmImport(){
 }
 function confirmImportAI(){
   let importados=0,duplicados=0,sinCat=[];
+  const importId=uid(); // ID único para esta importación
   const badgeText=document.getElementById('detected-profile-badge')?.textContent||'';
   const cuentaDefault=
     badgeText.includes('CMR')?'CMR Falabella (Tarjeta Crédito)':
@@ -2104,6 +2122,7 @@ function confirmImportAI(){
     const catId=autoClasificar(desc,tipoFinal);
     data.movimientos.push({
       id:uid(),
+      importId,
       fecha,
       desc,
       tipo:tipoFinal,
@@ -2138,6 +2157,7 @@ function confirmImportAI(){
   const topCategorias=Object.entries(catFreq).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([catId,total])=>({catId,total}));
 
   data.importaciones.push({
+    id:importId,
     fecha:new Date().toLocaleDateString('es-CL'),
     perfil:'ai',
     banco:cuentaDefault,
