@@ -289,8 +289,8 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
     </div>
     <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importarDatos(this)">
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v4.0</div>
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 21:50</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v4.1</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 22:10</div>
     </div>
   </div>
 </aside>
@@ -2029,7 +2029,7 @@ Responde con JSON compacto sin espacios ni saltos de línea, sin backticks, sin 
     lastParsedImport=parsed;
     if(modoLote){
       // En modo lote: importar automáticamente sin mostrar preview
-      confirmImportAI();
+      confirmImportAI(true);
       archivoActual++;
       await procesarSiguienteArchivo();
     } else {
@@ -2081,10 +2081,10 @@ function showImportPreviewAI(movs,banco,periodo){
 // Sobreescribir confirmImport para manejar perfil AI
 const _origConfirmImport=confirmImport;
 function confirmImport(){
-  if(importProfileDetected==='ai'){confirmImportAI();return}
+  if(importProfileDetected==='ai'){confirmImportAI(false);return}
   _origConfirmImport();
 }
-function confirmImportAI(){
+function confirmImportAI(modoLote=false){
   let importados=0,duplicados=0,sinCat=[];
   const importId=uid(); // ID único para esta importación
   const badgeText=document.getElementById('detected-profile-badge')?.textContent||'';
@@ -2235,7 +2235,7 @@ let _ultimaExportacion=Date.now();
 const _origSaveMov=saveMov;
 saveMov=function(){_origSaveMov.apply(this,arguments);_cambiosSinExportar++};
 const _origConfirmImportAI=confirmImportAI;
-confirmImportAI=function(){_origConfirmImportAI.apply(this,arguments);_cambiosSinExportar+=10};
+confirmImportAI=function(modoLote=false){_origConfirmImportAI(modoLote);_cambiosSinExportar+=10};
 
 // Aviso flotante cada 30 minutos SI hay cambios sin exportar
 const RECORDATORIO_MS=30*60*1000; // 30 minutos
