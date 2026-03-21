@@ -289,8 +289,8 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
     </div>
     <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importarDatos(this)">
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v3.7</div>
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 20:15</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v3.8</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 21:00</div>
     </div>
   </div>
 </aside>
@@ -431,7 +431,16 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
         </div>
         <div style="padding:0;overflow-x:auto">
           <table class="tbl">
-            <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Cuenta</th><th>Titular</th><th>Cuotas</th><th style="text-align:right">Monto</th><th></th></tr></thead>
+            <thead><tr>
+              <th onclick="sortMov('fecha')" style="cursor:pointer;user-select:none">Fecha <span id="sort-fecha">↓</span></th>
+              <th onclick="sortMov('desc')" style="cursor:pointer;user-select:none">Descripción <span id="sort-desc"></span></th>
+              <th>Categoría</th>
+              <th>Cuenta</th>
+              <th onclick="sortMov('titular')" style="cursor:pointer;user-select:none">Titular <span id="sort-titular"></span></th>
+              <th>Cuotas</th>
+              <th onclick="sortMov('monto')" style="cursor:pointer;user-select:none" style="text-align:right">Monto <span id="sort-monto"></span></th>
+              <th></th>
+            </tr></thead>
             <tbody id="mov-body"></tbody>
           </table>
         </div>
@@ -472,10 +481,12 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
         <div class="panel">
           <div class="panel-header"><span class="panel-title">🤖 PDF o imagen con IA</span><span class="badge badge-blue" style="font-size:10px">Recomendado</span></div>
           <div class="panel-body">
-            <div class="upload-zone" id="upload-zone-ai" onclick="document.getElementById('file-input-ai').click()" ondragover="dragOverAI(event)" ondragleave="dragLeaveAI(event)" ondrop="dropFileAI(event)">
+            <div class="upload-zone" id="upload-zone-ai" ondragover="dragOverAI(event)" ondragleave="dragLeaveAI(event)" ondrop="dropFileAI(event)" style="cursor:pointer">
+              <label for="file-input-ai" style="cursor:pointer;display:flex;flex-direction:column;align-items:center;width:100%;height:100%">
               <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               <div style="font-size:14px;color:var(--text2);margin-bottom:4px">Arrastra tu cartola PDF o imagen</div>
               <div style="font-size:12px;color:var(--text3)">PDF, JPG, PNG · CMR · Banco Chile · Banco Falabella</div>
+              </label>
             </div>
             <input type="file" id="file-input-ai" accept=".pdf,.jpg,.jpeg,.png,.webp" onchange="handleFileAI(this)" style="display:none">
             <!-- Error persistente -->
@@ -752,8 +763,9 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
 const MESES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const MESES_FULL=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
+let movSortCol='fecha';let movSortDir=-1;
+let lastParsedImport=null; // Guarda el último resultado de la IA para el historial
 let activeYear=2025;
-let editMovId=null;
 let importRows=[], importHeaders=[], importProfileDetected='manual';
 let movPage=0; const MOV_PAGE_SIZE=50;
 let chartIG=null,chartCat=null,chartPres=null,chartInv=null;
@@ -1337,6 +1349,18 @@ function savePres(){
 }
 function delPres(id){delete data.presupuestos[activeYear]?.[id];renderPresupuesto();showToast('Eliminado')}
 
+function sortMov(col){
+  if(movSortCol===col)movSortDir*=-1;
+  else{movSortCol=col;movSortDir=col==='monto'?-1:-1;}
+  // Actualizar indicadores visuales
+  ['fecha','desc','titular','monto'].forEach(c=>{
+    const el=document.getElementById('sort-'+c);
+    if(el)el.textContent=c===movSortCol?(movSortDir===-1?'↓':'↑'):'';
+  });
+  movPage=0;
+  renderMovimientos();
+}
+
 // ─── MOVIMIENTOS ─────────────────────────────────────────
 function renderMovimientos(){
   const search=(document.getElementById('mov-search')?.value||'').toLowerCase();
@@ -1359,7 +1383,17 @@ function renderMovimientos(){
   cuentaSel.innerHTML='<option value="">Todas las cuentas</option>'+cuentas.map(c=>`<option value="${c}" ${c===fcuenta?'selected':''}>${c}</option>`).join('');
 
   // Aplicar filtros
-  let movs=movsByYear().sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
+  let movs=movsByYear().sort((a,b)=>{
+    let va,vb;
+    if(movSortCol==='fecha'){va=a.fecha;vb=b.fecha;}
+    else if(movSortCol==='desc'){va=a.desc?.toLowerCase();vb=b.desc?.toLowerCase();}
+    else if(movSortCol==='monto'){va=a.monto;vb=b.monto;}
+    else if(movSortCol==='titular'){va=a.titular||'T';vb=b.titular||'T';}
+    else{va=a.fecha;vb=b.fecha;}
+    if(va<vb)return -1*movSortDir;
+    if(va>vb)return 1*movSortDir;
+    return 0;
+  });
   if(search)movs=movs.filter(m=>m.desc.toLowerCase().includes(search)||(getCat(m.catId)?.nombre||'').toLowerCase().includes(search));
   if(ftipo)movs=movs.filter(m=>m.tipo===ftipo);
   if(fcat)movs=movs.filter(m=>m.catId===fcat);
@@ -1661,8 +1695,48 @@ function parseMontoChile(s){
 function renderImportHistory(){
   const el=document.getElementById('import-history');
   if(!data.importaciones.length){el.innerHTML='<div class="empty"><div class="empty-icon">📂</div><div class="empty-title">Sin importaciones previas</div></div>';return}
-  const badges={cmr:'<span class="profile-tag profile-cmr">CMR</span>',banchile:'<span class="profile-tag profile-bch">BdCh</span>',bfalabella:'<span class="profile-tag profile-bfa">BFal</span>',manual:'<span class="profile-tag profile-manual">Manual</span>'};
-  el.innerHTML=data.importaciones.slice().reverse().map(i=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--bg3);border-radius:var(--r2);margin-bottom:8px"><div><div style="font-size:13px;font-weight:500">${badges[i.perfil]||''} ${i.filas} movimientos</div><div style="font-size:11px;color:var(--text3)">${i.fecha}${i.errores?' · '+i.errores+' errores':''}</div></div><span class="badge badge-green">+${i.filas}</span></div>`).join('');
+  el.innerHTML=data.importaciones.slice().reverse().map(imp=>{
+    const tcBadge=imp.tipoCuenta==='tarjeta_credito'?'💳':'🏦';
+    const banco=imp.banco||imp.perfil||'—';
+    const periodo=imp.periodo||'—';
+    // Calcular totales desde movimientos de esta importación (si tiene id de batch)
+    const gastosTop=imp.topCategorias||[];
+    const pctClas=imp.filas>0?Math.round(((imp.filas-(imp.sinCat||0))/imp.filas)*100):0;
+    return`<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:16px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <div style="font-size:14px;font-weight:600">${tcBadge} ${banco}</div>
+          <div style="font-size:12px;color:var(--text3)">Período: ${periodo} · Importado: ${imp.fecha}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          ${imp.duplicados?`<span class="badge badge-yellow">${imp.duplicados} duplicados</span>`:''}
+          <span class="badge badge-green">+${imp.filas} movimientos</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:${gastosTop.length?'12px':'0'}">
+        <div style="background:var(--bg2);border-radius:var(--r2);padding:10px">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:4px">GASTOS</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--red)">${imp.totalGastos?'-'+fmtK(imp.totalGastos):'—'}</div>
+        </div>
+        <div style="background:var(--bg2);border-radius:var(--r2);padding:10px">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:4px">INGRESOS</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--green)">${imp.totalIngresos?'+'+fmtK(imp.totalIngresos):'—'}</div>
+        </div>
+        <div style="background:var(--bg2);border-radius:var(--r2);padding:10px">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:4px">CLASIFICADOS</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent)">${pctClas}%</div>
+        </div>
+        ${imp.enCuotas?`<div style="background:var(--bg2);border-radius:var(--r2);padding:10px">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:4px">EN CUOTAS</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--yellow)">${imp.enCuotas}</div>
+        </div>`:''}
+      </div>
+      ${gastosTop.length?`<div style="font-size:11px;color:var(--text3);margin-bottom:6px">TOP CATEGORÍAS</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${gastosTop.map(g=>{const c=getCat(g.catId);return c?`<span class="badge badge-gray">${c.emoji} ${c.nombre} <strong>${fmtK(g.total)}</strong></span>`:''}).join('')}
+      </div>`:''}
+    </div>`;
+  }).join('');
 }
 
 // ─── REGLAS ──────────────────────────────────────────────
@@ -1898,6 +1972,7 @@ Responde con JSON compacto sin espacios ni saltos de línea, sin backticks, sin 
     ]);
     importHeaders=['fecha','descripcion','monto','tipo','montoTotal','numeroCuota','totalCuotas','titular','tipoCuenta','banco'];
     importProfileDetected='ai';
+    lastParsedImport=parsed;
     showImportPreviewAI(movs,parsed.banco||'IA',parsed.periodo||'');
     showToast('✓ '+movs.length+' movimientos extraídos','success');
   }catch(e){
@@ -2007,7 +2082,32 @@ function confirmImportAI(){
     if(catId==='g11'||catId==='i4')sinCat.push({desc,tipo:tipoFinal,monto,fecha});
   });
   
-  data.importaciones.push({fecha:new Date().toLocaleDateString('es-CL'),perfil:'ai',filas:importados,errores:0,duplicados});
+  const parsed=lastParsedImport||{};
+  const movsImportados=data.movimientos.slice(-importados);
+  const totalGastos=movsImportados.filter(m=>m.tipo==='gasto').reduce((a,m)=>a+m.monto,0);
+  const totalIngresos=movsImportados.filter(m=>m.tipo==='ingreso').reduce((a,m)=>a+m.monto,0);
+  const sinCat=movsImportados.filter(m=>m.catId==='g11'||m.catId==='i4').length;
+  const enCuotas=movsImportados.filter(m=>m.totalCuotas&&m.totalCuotas>1).length;
+  // Top 5 categorías
+  const catFreq={};
+  movsImportados.filter(m=>m.tipo==='gasto').forEach(m=>{catFreq[m.catId]=(catFreq[m.catId]||0)+m.monto});
+  const topCategorias=Object.entries(catFreq).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([catId,total])=>({catId,total}));
+
+  data.importaciones.push({
+    fecha:new Date().toLocaleDateString('es-CL'),
+    perfil:'ai',
+    banco:cuentaDefault,
+    periodo:parsed?.periodo||'—',
+    tipoCuenta:importRows[0]?.[8]||'cuenta_corriente',
+    filas:importados,
+    duplicados,
+    errores:0,
+    totalGastos,
+    totalIngresos,
+    sinCat,
+    enCuotas,
+    topCategorias
+  });
   cancelImport();renderImportHistory();
   
   let msg=importados+' movimientos importados';
