@@ -285,8 +285,8 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
     </div>
     <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importarDatos(this)">
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">FinanzasCL v2.4</div>
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 15:35</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">FinanzasCL v2.5</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 15:50</div>
     </div>
   </div>
 </aside>
@@ -1498,6 +1498,9 @@ FORMATO DE RESPUESTA — MUY IMPORTANTE:
     setAIStatus(true,'Procesando respuesta...',85);
     const result=await resp.json();
     const text=result.content?.[0]?.text||'';
+    console.log('=== RESPUESTA COMPLETA DE LA API ===');
+    console.log(text);
+    console.log('=== FIN RESPUESTA ===');
     let parsed;
     try{
       // Extraer JSON — funciona con o sin backticks markdown
