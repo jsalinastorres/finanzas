@@ -285,8 +285,8 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
     </div>
     <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importarDatos(this)">
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">FinanzasCL v2.3</div>
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 15:20</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">FinanzasCL v2.4</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 15:35</div>
     </div>
   </div>
 </aside>
@@ -429,6 +429,8 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
                 <div style="margin-top:10px;font-size:11px;color:var(--text3)">Copia este error y compártelo con Claude para solucionar el problema.</div>
               </div>
             </div>
+            <!-- Estado de procesamiento IA -->
+            <div id="ai-status" style="display:none;margin-top:14px">
               <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r2);padding:14px">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
                   <div id="ai-spinner" style="width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0"></div>
@@ -438,6 +440,7 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
                   <div id="ai-progress-bar" style="height:100%;background:var(--accent);width:0%;transition:width .3s ease;border-radius:2px"></div>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         </div>
