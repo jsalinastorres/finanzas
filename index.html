@@ -285,8 +285,8 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
     </div>
     <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importarDatos(this)">
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v3.1</div>
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 18:20</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v3.2</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 18:40</div>
     </div>
   </div>
 </aside>
@@ -1604,7 +1604,18 @@ function confirmImport(){
 function confirmImportAI(){
   let importados=0,duplicados=0,sinCat=[];
   const badgeText=document.getElementById('detected-profile-badge')?.textContent||'';
-  const cuentaDefault=badgeText.includes('CMR')?'CMR Falabella':badgeText.includes('Chile')?'Banco de Chile':badgeText.includes('Falabella')?'Banco Falabella':'Importado IA';
+  const cuentaDefault=
+    badgeText.includes('CMR')?'CMR Falabella (Tarjeta Crédito)':
+    badgeText.includes('Chile')?'Banco de Chile (Cta. Corriente)':
+    badgeText.includes('Falabella')?'Banco Falabella (Cta. Corriente)':'Importado IA';
+
+  // Ajustar cuenta según tipoCuenta del movimiento
+  const getCuenta=(tipoCuenta,banco)=>{
+    if(tipoCuenta==='tarjeta_credito') return 'CMR Falabella (Tarjeta Crédito)';
+    if(banco?.toLowerCase().includes('chile')) return 'Banco de Chile (Cta. Corriente)';
+    if(banco?.toLowerCase().includes('falabella')) return 'Banco Falabella (Cta. Corriente)';
+    return cuentaDefault;
+  };
 
   // Índice de duplicados
   const existentes=new Set(data.movimientos.map(m=>`${m.fecha}|${m.desc?.toLowerCase().trim()}|${m.monto}`));
@@ -1631,7 +1642,7 @@ function confirmImportAI(){
       desc,
       tipo:tipoFinal,
       catId,
-      cuenta:cuentaDefault,
+      cuenta:getCuenta(tipoCuenta,banco),
       monto,          // cuota mensual (lo que se paga este mes)
       montoTotal,     // monto total de la compra
       numeroCuota,
