@@ -285,8 +285,8 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
     </div>
     <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importarDatos(this)">
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">FinanzasCL v2.1</div>
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 14:30</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">FinanzasCL v2.2</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 15:05</div>
     </div>
   </div>
 </aside>
@@ -1497,11 +1497,18 @@ FORMATO DE RESPUESTA — MUY IMPORTANTE:
     const text=result.content?.[0]?.text||'';
     let parsed;
     try{
-      // Extraer JSON buscando el primer { y el último }
-      const start=text.indexOf('{');
-      const end=text.lastIndexOf('}');
-      if(start===-1||end===-1)throw new Error('Sin JSON en respuesta');
-      parsed=JSON.parse(text.slice(start,end+1));
+      // Extraer JSON — funciona con o sin backticks markdown
+      let clean=text;
+      // Si viene con ```json ... ``` o ``` ... ```
+      const fenceMatch=text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if(fenceMatch) clean=fenceMatch[1];
+      else{
+        // Buscar directamente el bloque JSON
+        const start=text.indexOf('{');
+        const end=text.lastIndexOf('}');
+        if(start!==-1&&end!==-1) clean=text.slice(start,end+1);
+      }
+      parsed=JSON.parse(clean.trim());
     }
     catch(e){throw new Error('Respuesta inesperada de IA: '+text.slice(0,200))}
     const movs=parsed.movimientos||[];
