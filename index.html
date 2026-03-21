@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FinanzasCL</title>
+<title>Control Presupuestario Personal</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Epilogue:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -220,9 +220,9 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
   <div class="sidebar-logo">
     <div class="logo-badge">
       <div class="logo-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
-      <span class="logo-name">FinanzasCL</span>
+      <span class="logo-name">CPP</span>
     </div>
-    <div class="logo-year" id="sidebar-year">AÑO 2025</div>
+    <div class="logo-year" id="sidebar-year">CONTROL PRESUPUESTARIO</div>
   </div>
   <nav class="nav">
     <div class="nav-section-label">Principal</div>
@@ -285,8 +285,8 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
     </div>
     <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importarDatos(this)">
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">FinanzasCL v2.8</div>
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 17:00</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v3.0</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 18:00</div>
     </div>
   </div>
 </aside>
@@ -1161,8 +1161,10 @@ function showImportPreview(src){
 function cancelImport(){document.getElementById('import-preview-panel').style.display='none';importRows=[];importHeaders=[]}
 
 function confirmImport(){
-  let importados=0,errores=0,sinCat=[];
+  let importados=0,errores=0,duplicados=0,sinCat=[];
   const year=activeYear;
+  // Índice de duplicados
+  const existentes=new Set(data.movimientos.map(m=>`${m.fecha}|${m.desc?.toLowerCase().trim()}|${m.monto}`));
   importRows.forEach(row=>{
     try{
       let fecha='',desc='',monto=0,tipo='gasto';
@@ -1221,6 +1223,10 @@ function confirmImport(){
         else{const cargo=parseMontoChile(row[parseInt(cca)]||'');const abono=parseMontoChile(row[parseInt(cab)]||'');if(cargo>0){monto=cargo;tipo='gasto'}else if(abono>0){monto=abono;tipo='ingreso'}else return}
       }
       if(!fecha||!desc||monto<=0){errores++;return}
+      // Verificar duplicado
+      const key=`${fecha}|${desc.toLowerCase().trim()}|${monto}`;
+      if(existentes.has(key)){duplicados++;return}
+      existentes.add(key);
       const catId=autoClasificar(desc,tipo);
       const cat=getCat(catId);
       if(!cat||(catId==='g11'&&tipo==='gasto')||catId==='i4'){
@@ -1238,10 +1244,13 @@ function confirmImport(){
       importados++;
     }catch(e){errores++}
   });
-  data.importaciones.push({fecha:new Date().toLocaleDateString('es-CL'),perfil:importProfileDetected,filas:importados,errores});
+  data.importaciones.push({fecha:new Date().toLocaleDateString('es-CL'),perfil:importProfileDetected,filas:importados,errores,duplicados});
   cancelImport();
   renderImportHistory();
-  showToast(`${importados} movimientos importados${errores?' ('+errores+' errores)':''}`,importados>0?'success':'error');
+  let msg=`${importados} movimientos importados`;
+  if(duplicados>0) msg+=` · ${duplicados} duplicados ignorados`;
+  if(errores>0) msg+=` · ${errores} errores`;
+  showToast(msg,importados>0?'success':'error');
   // Mostrar sin-cat
   if(sinCat.length>0){
     const uniq=[...new Map(sinCat.map(x=>[x.desc,x])).values()].slice(0,20);
@@ -1461,15 +1470,27 @@ async function processFileAI(file){
 
 REGLAS:
 - Extrae solo transacciones reales, no saldos ni encabezados
-- CMR Falabella: ignora filas "Pago tarjeta cmr" 
-- Banco de Chile: ignora "Saldo inicial", "Saldo final"
-- Banco Falabella CC: ignora "Transf para Pago Tarjeta CMR"
-- Montos siempre positivos (el tipo indica gasto/ingreso)
-- Fechas en formato YYYY-MM-DD (si solo hay DD/MM sin año, usa el año del período de la cartola)
+- CMR Falabella (tarjeta crédito): ignora filas "Pago tarjeta cmr", ignora intereses y comisiones
+- Banco de Chile (cuenta corriente): ignora "Saldo inicial", "Saldo final"
+- Banco Falabella CC (cuenta corriente): ignora "Transf para Pago Tarjeta CMR"
+- Montos siempre positivos
+- Fechas en formato YYYY-MM-DD (si solo hay DD/MM sin año, usa el año del período)
 
-Responde con JSON compacto (sin espacios ni saltos de línea), empezando directamente con { y terminando con }. Sin backticks, sin markdown.
+CAMPOS A EXTRAER POR MOVIMIENTO:
+- fecha: YYYY-MM-DD
+- descripcion: nombre del comercio limpio
+- monto: monto de la cuota mensual (lo que se paga ese mes). Para compras al contado es el monto total
+- montoTotal: monto total de la compra (puede diferir de monto si es en cuotas)
+- numeroCuota: número de cuota actual (ej: 1). Si es contado, usar 1
+- totalCuotas: total de cuotas (ej: 6). Si es contado, usar 1
+- tipo: "gasto" o "ingreso"
+- titular: "T" si es titular, "A1" si es adicional 1, "A2" si es adicional 2. Para cuentas corrientes siempre "T"
+- tipoCuenta: "tarjeta_credito" para CMR Falabella, "cuenta_corriente" para los demás
+- banco: nombre del banco detectado
 
-{"banco":"nombre","periodo":"mes año","movimientos":[{"fecha":"YYYY-MM-DD","descripcion":"comercio","monto":12345,"tipo":"gasto"}]}`;
+Responde con JSON compacto sin espacios ni saltos de línea, sin backticks, sin markdown.
+
+{"banco":"nombre","periodo":"mes año","tipoCuenta":"tarjeta_credito","movimientos":[{"fecha":"YYYY-MM-DD","descripcion":"comercio","monto":10000,"montoTotal":60000,"numeroCuota":1,"totalCuotas":6,"tipo":"gasto","titular":"T","tipoCuenta":"tarjeta_credito","banco":"Falabella"}]}`;
 
     setAIStatus(true,'Claude analizando...',60);
     const resp=await fetch('https://api.anthropic.com/v1/messages',{
@@ -1515,8 +1536,20 @@ Responde con JSON compacto (sin espacios ni saltos de línea), empezando directa
     const movs=parsed.movimientos||[];
     if(!movs.length){setAIStatus(false);showToast('No se encontraron transacciones','error');return}
     setAIStatus(false);
-    importRows=movs.map(m=>[m.fecha,m.descripcion,String(m.monto),m.tipo]);
-    importHeaders=['fecha','descripcion','monto','tipo'];
+    // Guardar movimientos completos con todos los campos nuevos
+    importRows=movs.map(m=>[
+      m.fecha,
+      m.descripcion,
+      String(m.monto||0),
+      m.tipo||'gasto',
+      String(m.montoTotal||m.monto||0),
+      String(m.numeroCuota||1),
+      String(m.totalCuotas||1),
+      m.titular||'T',
+      m.tipoCuenta||parsed.tipoCuenta||'cuenta_corriente',
+      m.banco||parsed.banco||''
+    ]);
+    importHeaders=['fecha','descripcion','monto','tipo','montoTotal','numeroCuota','totalCuotas','titular','tipoCuenta','banco'];
     importProfileDetected='ai';
     showImportPreviewAI(movs,parsed.banco||'IA',parsed.periodo||'');
     showToast('✓ '+movs.length+' movimientos extraídos','success');
@@ -1569,22 +1602,59 @@ function confirmImport(){
   _origConfirmImport();
 }
 function confirmImportAI(){
-  let importados=0,sinCat=[];
+  let importados=0,duplicados=0,sinCat=[];
   const badgeText=document.getElementById('detected-profile-badge')?.textContent||'';
-  const cuenta=badgeText.includes('CMR')?'CMR Falabella':badgeText.includes('Chile')?'Banco de Chile':badgeText.includes('Falabella')?'Banco Falabella':'Importado IA';
+  const cuentaDefault=badgeText.includes('CMR')?'CMR Falabella':badgeText.includes('Chile')?'Banco de Chile':badgeText.includes('Falabella')?'Banco Falabella':'Importado IA';
+
+  // Índice de duplicados
+  const existentes=new Set(data.movimientos.map(m=>`${m.fecha}|${m.desc?.toLowerCase().trim()}|${m.monto}`));
+
   importRows.forEach(row=>{
-    const [fecha,desc,montoStr,tipo]=row;
-    const monto=parseFloat(montoStr);
-    if(!fecha||!desc||isNaN(monto)||monto<=0)return;
+    const [fecha,desc,montoStr,tipo,montoTotalStr,numCuotaStr,totalCuotasStr,titular,tipoCuenta,banco]=row;
+    const monto=parseFloat(montoStr)||0;
+    const montoTotal=parseFloat(montoTotalStr)||monto;
+    const numeroCuota=parseInt(numCuotaStr)||1;
+    const totalCuotas=parseInt(totalCuotasStr)||1;
+    const esContado=totalCuotas===1;
+
+    if(!fecha||!desc||monto<=0)return;
     const tipoFinal=tipo||'gasto';
+
+    // Verificar duplicado
+    const key=`${fecha}|${desc.toLowerCase().trim()}|${monto}`;
+    if(existentes.has(key)){duplicados++;return}
+
     const catId=autoClasificar(desc,tipoFinal);
-    data.movimientos.push({id:uid(),fecha,desc,tipo:tipoFinal,catId,cuenta,monto,nota:'Importado con IA',year:parseInt(fecha.slice(0,4))||activeYear,perfil:'ai'});
+    data.movimientos.push({
+      id:uid(),
+      fecha,
+      desc,
+      tipo:tipoFinal,
+      catId,
+      cuenta:cuentaDefault,
+      monto,          // cuota mensual (lo que se paga este mes)
+      montoTotal,     // monto total de la compra
+      numeroCuota,
+      totalCuotas,
+      esContado,
+      titular:titular||'T',
+      tipoCuenta:tipoCuenta||'cuenta_corriente',
+      banco:banco||cuentaDefault,
+      nota:'Importado con IA',
+      year:parseInt(fecha.slice(0,4))||activeYear,
+      perfil:'ai'
+    });
+    existentes.add(key);
     importados++;
     if(catId==='g11'||catId==='i4')sinCat.push({desc,tipo:tipoFinal,monto,fecha});
   });
-  data.importaciones.push({fecha:new Date().toLocaleDateString('es-CL'),perfil:'ai',filas:importados,errores:0});
+  
+  data.importaciones.push({fecha:new Date().toLocaleDateString('es-CL'),perfil:'ai',filas:importados,errores:0,duplicados});
   cancelImport();renderImportHistory();
-  showToast(importados+' movimientos importados con IA ✓','success');
+  
+  let msg=importados+' movimientos importados';
+  if(duplicados>0) msg+=` · ${duplicados} duplicados ignorados`;
+  showToast(msg,'success');
   if(sinCat.length){
     const uniq=[...new Map(sinCat.map(x=>[x.desc,x])).values()].slice(0,20);
     document.getElementById('sin-cat-list').innerHTML=uniq.map((m,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:12px"><div style="flex:2;font-size:13px">${m.desc}<div style="font-size:11px;color:var(--text3)">${fmt(m.monto)}</div></div><select class="form-select" id="sc-${i}" data-desc="${m.desc}" data-tipo="${m.tipo}" style="flex:1"><option value="">Sin categoría</option>${data.categorias[m.tipo].map(c=>`<option value="${c.id}">${c.emoji} ${c.nombre}</option>`).join('')}</select></div>`).join('');
@@ -1602,7 +1672,7 @@ function exportarDatos(){
     const a=document.createElement('a');
     const fecha=new Date().toISOString().slice(0,10);
     a.href=url;
-    a.download=`FinanzasCL_datos_${fecha}.json`;
+    a.download=`CPP_datos_${fecha}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1695,7 +1765,7 @@ function cerrarRecordatorio(){
 // Aviso al cerrar pestaña/navegador
 window.addEventListener('beforeunload',e=>{
   if(_cambiosSinExportar===0)return;
-  const msg='Tienes cambios sin exportar en FinanzasCL. ¿Deseas salir sin guardar?';
+  const msg='Tienes cambios sin exportar en Control Presupuestario Personal. ¿Deseas salir sin guardar?';
   e.preventDefault();
   e.returnValue=msg;
   return msg;
