@@ -285,8 +285,8 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
     </div>
     <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importarDatos(this)">
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v3.2</div>
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 18:40</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v3.3</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 19:00</div>
     </div>
   </div>
 </aside>
@@ -357,12 +357,30 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
 
     <!-- MOVIMIENTOS -->
     <div class="page" id="page-movimientos">
-      <div class="form-row" style="margin-bottom:16px">
+      <div class="form-row" style="margin-bottom:8px">
         <div class="form-group" style="flex:2"><input class="form-input" id="mov-search" type="text" placeholder="🔍  Buscar..." oninput="renderMovimientos()"></div>
         <div class="form-group"><select class="form-select" id="mov-ftipo" onchange="renderMovimientos()"><option value="">Todos los tipos</option><option value="ingreso">Ingresos</option><option value="gasto">Gastos</option></select></div>
         <div class="form-group"><select class="form-select" id="mov-fcat" onchange="renderMovimientos()"><option value="">Todas las categorías</option></select></div>
         <div class="form-group"><select class="form-select" id="mov-fmes" onchange="renderMovimientos()"><option value="">Todos los meses</option></select></div>
+      </div>
+      <div class="form-row" style="margin-bottom:16px">
         <div class="form-group"><select class="form-select" id="mov-fcuenta" onchange="renderMovimientos()"><option value="">Todas las cuentas</option></select></div>
+        <div class="form-group"><select class="form-select" id="mov-ftipocuenta" onchange="renderMovimientos()">
+          <option value="">Tarjeta y Cta. Corriente</option>
+          <option value="tarjeta_credito">💳 Tarjeta de Crédito</option>
+          <option value="cuenta_corriente">🏦 Cuenta Corriente</option>
+        </select></div>
+        <div class="form-group"><select class="form-select" id="mov-ftitular" onchange="renderMovimientos()">
+          <option value="">Todos los titulares</option>
+          <option value="T">👤 Titular</option>
+          <option value="A1">👤 Adicional 1</option>
+          <option value="A2">👤 Adicional 2</option>
+        </select></div>
+        <div class="form-group"><select class="form-select" id="mov-fcuotas" onchange="renderMovimientos()">
+          <option value="">Contado y cuotas</option>
+          <option value="contado">✅ Solo contado</option>
+          <option value="cuotas">🔄 Solo cuotas</option>
+        </select></div>
       </div>
       <div class="panel">
         <div class="panel-header">
@@ -371,7 +389,7 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
         </div>
         <div style="padding:0;overflow-x:auto">
           <table class="tbl">
-            <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Cuenta</th><th style="text-align:right">Monto</th><th></th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Cuenta</th><th>Titular</th><th>Cuotas</th><th style="text-align:right">Monto</th><th></th></tr></thead>
             <tbody id="mov-body"></tbody>
           </table>
         </div>
@@ -1035,7 +1053,11 @@ function renderMovimientos(){
   const fcat=document.getElementById('mov-fcat')?.value||'';
   const fmes=document.getElementById('mov-fmes')?.value||'';
   const fcuenta=document.getElementById('mov-fcuenta')?.value||'';
-  // fill filters
+  const ftipocuenta=document.getElementById('mov-ftipocuenta')?.value||'';
+  const ftitular=document.getElementById('mov-ftitular')?.value||'';
+  const fcuotas=document.getElementById('mov-fcuotas')?.value||'';
+
+  // Poblar filtros dinámicos
   const allCats=[...data.categorias.gasto,...data.categorias.ingreso];
   const catSel=document.getElementById('mov-fcat');
   catSel.innerHTML='<option value="">Todas las categorías</option>'+allCats.map(c=>`<option value="${c.id}" ${c.id===fcat?'selected':''}>${c.emoji} ${c.nombre}</option>`).join('');
@@ -1044,24 +1066,55 @@ function renderMovimientos(){
   const cuentas=[...new Set(data.movimientos.map(m=>m.cuenta).filter(Boolean))];
   const cuentaSel=document.getElementById('mov-fcuenta');
   cuentaSel.innerHTML='<option value="">Todas las cuentas</option>'+cuentas.map(c=>`<option value="${c}" ${c===fcuenta?'selected':''}>${c}</option>`).join('');
+
+  // Aplicar filtros
   let movs=movsByYear().sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
   if(search)movs=movs.filter(m=>m.desc.toLowerCase().includes(search)||(getCat(m.catId)?.nombre||'').toLowerCase().includes(search));
   if(ftipo)movs=movs.filter(m=>m.tipo===ftipo);
   if(fcat)movs=movs.filter(m=>m.catId===fcat);
   if(fmes!=='')movs=movs.filter(m=>new Date(m.fecha).getMonth()===parseInt(fmes));
   if(fcuenta)movs=movs.filter(m=>m.cuenta===fcuenta);
+  if(ftipocuenta)movs=movs.filter(m=>(m.tipoCuenta||'cuenta_corriente')===ftipocuenta);
+  if(ftitular)movs=movs.filter(m=>(m.titular||'T')===ftitular);
+  if(fcuotas==='contado')movs=movs.filter(m=>!m.totalCuotas||m.totalCuotas<=1);
+  if(fcuotas==='cuotas')movs=movs.filter(m=>m.totalCuotas&&m.totalCuotas>1);
+
   document.getElementById('mov-count').textContent=movs.length;
   const total=movs.length;const pages=Math.ceil(total/MOV_PAGE_SIZE);
   const slice=movs.slice(movPage*MOV_PAGE_SIZE,(movPage+1)*MOV_PAGE_SIZE);
+
+  // Helpers para badges
+  const titularBadge=(t)=>{
+    if(t==='A1')return'<span class="badge badge-blue" style="font-size:10px">A1</span>';
+    if(t==='A2')return'<span class="badge badge-orange" style="font-size:10px">A2</span>';
+    return'<span class="badge badge-gray" style="font-size:10px">T</span>';
+  };
+  const cuotaBadge=(m)=>{
+    if(!m.totalCuotas||m.totalCuotas<=1)return'<span style="font-size:11px;color:var(--text3)">—</span>';
+    return`<span class="badge badge-yellow" style="font-size:10px">${m.numeroCuota||1}/${m.totalCuotas}</span>`;
+  };
+
   let html='';
-  if(!slice.length)html=`<tr><td colspan="6"><div class="empty"><div class="empty-icon">🔍</div><div class="empty-title">Sin movimientos</div><div class="empty-sub">Importa una cartola o agrega manualmente</div></div></td></tr>`;
+  if(!slice.length)html=`<tr><td colspan="8"><div class="empty"><div class="empty-icon">🔍</div><div class="empty-title">Sin movimientos</div><div class="empty-sub">Importa una cartola o agrega manualmente</div></div></td></tr>`;
   else slice.forEach(m=>{
     const c=getCat(m.catId);
-    const perfil=m.perfil==='cmr'?'<span class="profile-tag profile-cmr" style="font-size:9px;padding:2px 6px">CMR</span>':m.perfil==='banchile'?'<span class="profile-tag profile-bch" style="font-size:9px;padding:2px 6px">BdCh</span>':m.perfil==='bfalabella'?'<span class="profile-tag profile-bfa" style="font-size:9px;padding:2px 6px">BFal</span>':'';
-    html+=`<tr><td style="font-family:'JetBrains Mono',monospace;font-size:12px">${m.fecha}</td><td><div style="font-size:13px;font-weight:500">${m.desc}</div>${m.nota?`<div style="font-size:11px;color:var(--text3)">${m.nota}</div>`:''}</td><td><span class="badge ${m.tipo==='ingreso'?'badge-green':'badge-gray'}">${c?c.emoji+' '+c.nombre:'Sin categoría'}</span></td><td style="font-size:12px;color:var(--text2)">${perfil} ${m.cuenta||'—'}</td><td class="num ${m.tipo==='ingreso'?'pos':'neg'}">${m.tipo==='ingreso'?'+':'-'}${fmt(m.monto)}</td><td class="actions"><button class="btn btn-ghost btn-sm" onclick="editMov('${m.id}')">✎</button><button class="btn btn-red btn-sm" onclick="delMov('${m.id}')">✕</button></td></tr>`;
+    const tcBadge=m.tipoCuenta==='tarjeta_credito'?
+      '<span style="font-size:10px;color:#c084fc">💳 TC</span>':
+      '<span style="font-size:10px;color:var(--blue)">🏦 CC</span>';
+    html+=`<tr>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:12px">${m.fecha}</td>
+      <td><div style="font-size:13px;font-weight:500">${m.desc}</div></td>
+      <td><span class="badge ${m.tipo==='ingreso'?'badge-green':'badge-gray'}">${c?c.emoji+' '+c.nombre:'Sin categoría'}</span></td>
+      <td style="font-size:11px;color:var(--text2)">${tcBadge} ${m.cuenta||'—'}</td>
+      <td>${titularBadge(m.titular||'T')}</td>
+      <td>${cuotaBadge(m)}</td>
+      <td class="num ${m.tipo==='ingreso'?'pos':'neg'}">${m.tipo==='ingreso'?'+':'-'}${fmt(m.monto)}</td>
+      <td class="actions"><button class="btn btn-ghost btn-sm" onclick="editMov('${m.id}')">✎</button><button class="btn btn-red btn-sm" onclick="delMov('${m.id}')">✕</button></td>
+    </tr>`;
   });
   document.getElementById('mov-body').innerHTML=html;
-  // paginación
+
+  // Paginación
   let pg='';
   if(pages>1){
     pg+=`<span style="font-size:12px;color:var(--text3)">Pág ${movPage+1} de ${pages}</span>`;
