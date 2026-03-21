@@ -285,8 +285,8 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
     </div>
     <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importarDatos(this)">
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">FinanzasCL v2.6</div>
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 16:10</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">FinanzasCL v2.7</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 16:30</div>
     </div>
   </div>
 </aside>
@@ -1467,14 +1467,9 @@ REGLAS:
 - Montos siempre positivos (el tipo indica gasto/ingreso)
 - Fechas en formato YYYY-MM-DD (si solo hay DD/MM sin año, usa el año del período de la cartola)
 
-FORMATO DE RESPUESTA — MUY IMPORTANTE:
-- Responde SOLO con el objeto JSON
-- NO uses bloques de código
-- NO uses comillas invertidas
-- NO escribas nada antes ni después del JSON
-- Empieza directamente con { y termina con }
+Responde con JSON compacto (sin espacios ni saltos de línea), empezando directamente con { y terminando con }. Sin backticks, sin markdown.
 
-{"banco":"nombre detectado","periodo":"mes y año","movimientos":[{"fecha":"YYYY-MM-DD","descripcion":"nombre comercio","monto":12345,"tipo":"gasto o ingreso"}]}`;
+{"banco":"nombre","periodo":"mes año","movimientos":[{"fecha":"YYYY-MM-DD","descripcion":"comercio","monto":12345,"tipo":"gasto"}]}`;
 
     setAIStatus(true,'Claude analizando...',60);
     const resp=await fetch('https://api.anthropic.com/v1/messages',{
@@ -1482,8 +1477,8 @@ FORMATO DE RESPUESTA — MUY IMPORTANTE:
       headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
         model:'claude-haiku-4-5-20251001',
-        max_tokens:8000,
-        system:'Eres un extractor de datos JSON. Respondes ÚNICAMENTE con JSON válido, sin texto adicional, sin bloques de código, sin backticks. Tu respuesta empieza con { y termina con }. Nunca escribes nada fuera del JSON.',
+        max_tokens:16000,
+        system:'Eres un extractor de datos JSON. Respondes ÚNICAMENTE con JSON válido, sin texto adicional, sin bloques de código, sin backticks. Tu respuesta empieza con { y termina con }. Nunca escribes nada fuera del JSON. Usa formato compacto sin espacios ni saltos de línea innecesarios.',
         messages:[{role:'user',content:[
           {type:mediaType==='application/pdf'?'document':'image',source:{type:'base64',media_type:mediaType,data:base64}},
           {type:'text',text:prompt}
