@@ -289,8 +289,8 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
     </div>
     <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importarDatos(this)">
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v4.1</div>
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 22:10</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v4.2</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-21 · 22:30</div>
     </div>
   </div>
 </aside>
@@ -1925,6 +1925,13 @@ async function procesarSiguienteArchivo(){
     return;
   }
   const file=archivosCola[archivoActual];
+  // Pausa entre archivos para evitar rate limit (excepto el primero)
+  if(archivoActual>0&&archivosCola.length>1){
+    for(let i=20;i>0;i--){
+      setAIStatus(true,`Esperando ${i}s antes del archivo ${archivoActual+1}/${archivosCola.length}...`,5);
+      await new Promise(r=>setTimeout(r,1000));
+    }
+  }
   if(archivosCola.length>1){
     setAIStatus(true,`Procesando archivo ${archivoActual+1} de ${archivosCola.length}: ${file.name}`,5);
   }
