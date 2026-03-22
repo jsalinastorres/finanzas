@@ -288,9 +288,16 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
       </div>
     </div>
     <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importarDatos(this)">
-    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);text-align:center">
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v4.4</div>
-      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2025-03-22 · 17:36</div>
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+      <button class="save-btn" onclick="publicarEnGitHub()" id="github-publish-btn" style="background:var(--green-bg);color:var(--green);border-color:#0f3a20;margin-bottom:6px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+        Publicar en GitHub
+      </button>
+      <div id="github-status" style="display:none;font-size:11px;padding:6px 8px;border-radius:var(--r2);margin-bottom:6px"></div>
+    </div>
+    <div style="padding-top:8px;border-top:1px solid var(--border);text-align:center">
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">CPP v4.6</div>
+      <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">2026-03-22 · 18:05</div>
     </div>
   </div>
 </aside>
@@ -476,7 +483,29 @@ body{font-family:'Epilogue',sans-serif;background:var(--bg);color:var(--text);mi
         </div>
       </div>
 
-      <!-- IMPORTAR CON IA -->
+      <!-- GITHUB TOKEN CONFIG -->
+      <div class="panel" style="margin-bottom:20px">
+        <div class="panel-header">
+          <span class="panel-title">🐙 Publicación automática en GitHub</span>
+          <span id="github-token-badge"></span>
+        </div>
+        <div class="panel-body">
+          <div class="alert alert-blue" style="margin-bottom:16px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span>Con tu token de GitHub puedes actualizar la app en <strong>jsalinastorres.github.io/finanzas</strong> con un solo clic desde el botón del menú lateral. El token se guarda solo en este navegador.</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-end">
+            <div class="form-group" style="flex:1">
+              <label class="form-label">GitHub Personal Access Token</label>
+              <input class="form-input" type="password" id="github-token-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+            </div>
+            <button class="btn btn-accent" onclick="saveGithubToken()" style="flex-shrink:0">Guardar token</button>
+          </div>
+          <div style="margin-top:10px;font-size:12px;color:var(--text3)">
+            Crea tu token en <a href="https://github.com/settings/tokens/new?scopes=repo&description=CPP+FinanzasCL" target="_blank" style="color:var(--accent);text-decoration:none">github.com → Settings → Developer settings → Personal access tokens → Tokens (classic)</a>. Activa el permiso <strong>repo</strong>.
+          </div>
+        </div>
+      </div>
       <div class="grid-2" style="margin-bottom:20px">
         <div class="panel">
           <div class="panel-header"><span class="panel-title">🤖 PDF o imagen con IA</span><span class="badge badge-blue" style="font-size:10px">Recomendado</span></div>
@@ -1847,8 +1876,81 @@ document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('clic
 function showToast(msg,type='success'){const t=document.getElementById('toast');t.className='toast '+type;t.innerHTML=`<span>${type==='success'?'✓':'✕'}</span> ${msg}`;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000)}
 
 // ═══════════════════════════════════════════════════════
-// API KEY MANAGEMENT
+// GITHUB PUBLISH
 // ═══════════════════════════════════════════════════════
+function saveGithubToken(){
+  const token=document.getElementById('github-token-input').value.trim();
+  if(!token.startsWith('ghp_')&&!token.startsWith('github_pat_')){showToast('El token debe comenzar con ghp_ o github_pat_','error');return}
+  localStorage.setItem('cpp_github_token',token);
+  updateGithubTokenUI();
+  showToast('Token de GitHub guardado ✓','success');
+}
+function getGithubToken(){return localStorage.getItem('cpp_github_token')||''}
+function updateGithubTokenUI(){
+  const token=getGithubToken();
+  const badge=document.getElementById('github-token-badge');
+  const input=document.getElementById('github-token-input');
+  if(badge){badge.innerHTML=token?'<span class="badge badge-green">✓ Configurado</span>':'<span class="badge badge-red">Sin configurar</span>'}
+  if(input&&token){input.value='ghp_•••••••••••••••••••'+token.slice(-4);input.placeholder='Token guardado'}
+}
+async function publicarEnGitHub(){
+  const token=getGithubToken();
+  if(!token){
+    showToast('Primero configura tu token de GitHub en Importar Cartola','error');
+    showPage('importar');
+    return;
+  }
+  const btn=document.getElementById('github-publish-btn');
+  const status=document.getElementById('github-status');
+  btn.disabled=true;
+  btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg> Publicando...';
+  status.style.display='block';
+  status.style.background='var(--bg3)';
+  status.style.color='var(--text2)';
+  status.textContent='Obteniendo versión actual...';
+  try{
+    const OWNER='jsalinastorres';
+    const REPO='finanzas';
+    const FILE='index.html';
+    const BRANCH='main';
+    // 1. Obtener SHA del archivo actual
+    const getResp=await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${FILE}?ref=${BRANCH}`,{
+      headers:{'Authorization':`token ${token}`,'Accept':'application/vnd.github.v3+json'}
+    });
+    if(!getResp.ok)throw new Error('No se pudo obtener el archivo actual ('+getResp.status+')');
+    const fileData=await getResp.json();
+    const sha=fileData.sha;
+    status.textContent='Preparando nuevo archivo...';
+    // 2. Obtener el HTML actual de esta página
+    const html=document.documentElement.outerHTML;
+    const base64=btoa(unescape(encodeURIComponent(html)));
+    status.textContent='Subiendo a GitHub...';
+    // 3. Actualizar el archivo en GitHub
+    const putResp=await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${FILE}`,{
+      method:'PUT',
+      headers:{'Authorization':`token ${token}`,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'},
+      body:JSON.stringify({
+        message:'CPP actualización automática',
+        content:base64,
+        sha,
+        branch:BRANCH
+      })
+    });
+    if(!putResp.ok){const e=await putResp.json();throw new Error(e.message||'Error al subir ('+putResp.status+')')}
+    status.style.background='var(--green-bg)';
+    status.style.color='var(--green)';
+    status.innerHTML='✓ Publicado — <a href="https://'+OWNER+'.github.io/'+REPO+'" target="_blank" style="color:var(--green)">ver app en vivo</a> (actualiza en 1-2 min)';
+    showToast('✓ App publicada en GitHub Pages','success');
+  }catch(e){
+    status.style.background='var(--red-bg)';
+    status.style.color='var(--red)';
+    status.textContent='Error: '+e.message;
+    showToast('Error al publicar: '+e.message,'error');
+  }finally{
+    btn.disabled=false;
+    btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg> Publicar en GitHub';
+  }
+}
 function saveApiKey(){
   const key=document.getElementById('apikey-input').value.trim();
   if(!key.startsWith('sk-ant-')){showToast('La key debe comenzar con sk-ant-','error');return}
@@ -1949,6 +2051,11 @@ async function processFileAI(file, modoLote=false){
     const mediaType=ext==='pdf'?'application/pdf':ext==='jpg'||ext==='jpeg'?'image/jpeg':ext==='png'?'image/png':'image/webp';
     setAIStatus(true,'Enviando a Claude IA...',35);
     const prompt=`Eres un experto en cartolas bancarias chilenas. Extrae TODOS los movimientos de este documento.
+
+IDENTIFICACIÓN DEL DOCUMENTO:
+- Si dice "ESTADO DE CUENTA CLIENTE ELITE" o tiene logo CMR o menciona "CMR Puntos" o "N° de Contrato: 720010" → es CMR Falabella tarjeta crédito → tipoCuenta:"tarjeta_credito", banco:"CMR Falabella"
+- Si dice "Cuenta Corriente / Cartola Histórica" y tiene logo Banco Falabella (hoja verde) → es Banco Falabella cuenta corriente → tipoCuenta:"cuenta_corriente", banco:"Banco Falabella CC"
+- Si dice "Banco de Chile" o "BancoChile" → tipoCuenta:"cuenta_corriente", banco:"Banco de Chile"
 
 REGLAS:
 - Extrae solo transacciones reales, no saldos ni encabezados
@@ -2103,10 +2210,11 @@ function confirmImportAI(modoLote=false){
 
   // Ajustar cuenta según tipoCuenta del movimiento
   const getCuenta=(tipoCuenta,banco)=>{
-    if(tipoCuenta==='tarjeta_credito') return 'CMR Falabella (Tarjeta Crédito)';
-    if(banco?.toLowerCase().includes('chile')) return 'Banco de Chile (Cta. Corriente)';
-    if(banco?.toLowerCase().includes('falabella')) return 'Banco Falabella (Cta. Corriente)';
-    return cuentaDefault;
+    const b=(banco||'').toLowerCase();
+    if(tipoCuenta==='tarjeta_credito'||b.includes('cmr')) return 'CMR Falabella (Tarjeta Crédito)';
+    if(b.includes('banco falabella')||b.includes('bfalabella')) return 'Banco Falabella (Cta. Corriente)';
+    if(b.includes('chile')) return 'Banco de Chile (Cta. Corriente)';
+    return banco||'Importado IA';
   };
 
   // Índice de duplicados
@@ -2169,7 +2277,7 @@ function confirmImportAI(modoLote=false){
     fecha:new Date().toLocaleDateString('es-CL'),
     hora:new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}),
     perfil:'ai',
-    banco:cuentaDefault,
+    banco:getCuenta(importRows[0]?.[8]||'cuenta_corriente', importRows[0]?.[9]||''),
     periodo:parsed?.periodo||'—',
     tipoCuenta:importRows[0]?.[8]||'cuenta_corriente',
     filas:importados,
@@ -2308,6 +2416,7 @@ loadData();
 updateMovCats();updatePresCats();updateReglaCats();
 renderDashboard();
 setTimeout(updateApiKeyUI,100);
+setTimeout(updateGithubTokenUI,100);
 // Limpiar estado residual de sesión anterior
 setAIStatus(false,'',0);
 document.getElementById('ai-error-panel').style.display='none';
